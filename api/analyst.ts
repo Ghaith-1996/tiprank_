@@ -16,26 +16,35 @@ async function fetchPrices(tickers: string[]): Promise<Record<string, number>> {
   const map: Record<string, number> = {};
   if (tickers.length === 0) return map;
 
-  try {
-    const yf = await import('yahoo-finance2');
-    const yahooFinance = yf.default;
+  const results = await Promise.all(
+    tickers.map(async (ticker) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
 
-    const results = await Promise.all(
-      tickers.map(async (ticker) => {
-        try {
-          const quote: Record<string, unknown> = await yahooFinance.quote(ticker);
-          return { ticker, price: (quote.regularMarketPrice as number) ?? 0 };
-        } catch {
-          return { ticker, price: 0 };
-        }
-      }),
-    );
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
 
-    for (const r of results) {
-      if (r.price > 0) map[r.ticker] = r.price;
-    }
-  } catch (err) {
-    console.warn('yahoo-finance2 failed, prices unavailable:', err);
+        if (!res.ok) return { ticker, price: 0 };
+
+        const data = await res.json() as {
+          chart?: { result?: Array<{ meta?: { regularMarketPrice?: number } }> }
+        };
+
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? 0;
+        return { ticker, price };
+      } catch {
+        return { ticker, price: 0 };
+      }
+    }),
+  );
+
+  for (const r of results) {
+    if (r.price > 0) map[r.ticker] = r.price;
   }
 
   return map;
