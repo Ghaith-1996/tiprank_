@@ -1,7 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_db';
-import yahooFinance from 'yahoo-finance2';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const yahooFinance = require('yahoo-finance2').default || require('yahoo-finance2');
+
+async function fetchPrice(ticker: string): Promise<number> {
+  try {
+    const q = await yahooFinance.quote(ticker);
+    return (q as Record<string, unknown>).regularMarketPrice as number ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id } = req.query;
@@ -36,14 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const priceMap: Record<string, number> = {};
     try {
       const quotes = await Promise.all(
-        tickers.map(async (ticker) => {
-          try {
-            const q = await yahooFinance.quote(ticker);
-            return { ticker, price: q.regularMarketPrice ?? 0 };
-          } catch {
-            return { ticker, price: 0 };
-          }
-        }),
+        tickers.map(async (ticker) => ({
+          ticker,
+          price: await fetchPrice(ticker),
+        })),
       );
       for (const q of quotes) {
         priceMap[q.ticker] = q.price;
