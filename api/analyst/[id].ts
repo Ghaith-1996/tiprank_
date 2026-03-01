@@ -1,6 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ObjectId } from 'mongodb';
-import { getDb } from '../_db';
+import { MongoClient, ObjectId } from 'mongodb';
+
+let cachedClient: MongoClient | null = null;
+
+async function getDb() {
+  if (!cachedClient) {
+    const uri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || '';
+    if (!uri) throw new Error('MONGODB_URI is not set');
+    cachedClient = await new MongoClient(uri).connect();
+  }
+  return cachedClient.db();
+}
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const yahooFinance = require('yahoo-finance2').default || require('yahoo-finance2');

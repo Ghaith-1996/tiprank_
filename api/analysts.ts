@@ -1,5 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './_db';
+import { MongoClient } from 'mongodb';
+
+let cachedClient: MongoClient | null = null;
+
+async function getDb() {
+  if (!cachedClient) {
+    const uri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || '';
+    if (!uri) throw new Error('MONGODB_URI is not set');
+    cachedClient = await new MongoClient(uri).connect();
+  }
+  return cachedClient.db();
+}
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
