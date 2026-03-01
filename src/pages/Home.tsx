@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Star, TrendingUp, Loader2, ExternalLink } from 'lucide-react';
+import { ChevronRight, Star, TrendingUp, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 import type { Analyst } from '../types';
 
 export default function Home() {
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getAnalysts().then((data) => {
-      setAnalysts(data);
-      setLoading(false);
-    });
+    api.getAnalysts()
+      .then((data) => {
+        setAnalysts(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load analysts:', err);
+        setError(err.message || 'Failed to load analysts');
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
@@ -20,6 +27,22 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
         <p className="text-lg font-medium">Loading analysts...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
+        <AlertCircle className="w-10 h-10 text-rose-500 mb-4" />
+        <p className="text-lg font-medium text-rose-400">Something went wrong</p>
+        <p className="text-sm text-slate-500 mt-2 max-w-md text-center">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-6 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
