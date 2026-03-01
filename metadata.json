@@ -1,0 +1,5 @@
+{
+  "name": "Analyst Ratings Tracker",
+  "description": "A frontend webpage showing 14 financial analysts and their latest stock ratings, including detailed pages for each analyst with 10 stock ratings.",
+  "requestFramePermissions": []
+}
