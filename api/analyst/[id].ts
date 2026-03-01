@@ -12,16 +12,42 @@ async function getDb() {
   return cachedClient.db();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const yahooFinance = require('yahoo-finance2').default || require('yahoo-finance2');
+async function fetchPrices(tickers: string[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {};
+  if (tickers.length === 0) return map;
 
-async function fetchPrice(ticker: string): Promise<number> {
   try {
-    const q = await yahooFinance.quote(ticker);
-    return (q as Record<string, unknown>).regularMarketPrice as number ?? 0;
-  } catch {
-    return 0;
+    const symbols = tickers.join(',');
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`Yahoo API ${res.status}`);
+
+    const data = await res.json() as {
+      quoteResponse?: { result?: Array<{ symbol: string; regularMarketPrice?: number }> }
+    };
+
+    const quotes = data?.quoteResponse?.result ?? [];
+    for (const q of quotes) {
+      if (q.symbol && q.regularMarketPrice) {
+        map[q.symbol] = q.regularMarketPrice;
+      }
+    }
+  } catch (err) {
+    console.warn('Yahoo Finance price fetch failed (prices will show as —):', err);
   }
+
+  return map;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -53,21 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .toArray();
 
     const tickers = [...new Set(ratingDocs.map((r) => r.ticker as string))];
-
-    const priceMap: Record<string, number> = {};
-    try {
-      const quotes = await Promise.all(
-        tickers.map(async (ticker) => ({
-          ticker,
-          price: await fetchPrice(ticker),
-        })),
-      );
-      for (const q of quotes) {
-        priceMap[q.ticker] = q.price;
-      }
-    } catch (err) {
-      console.warn('Yahoo Finance batch error:', err);
-    }
+    const priceMap = await fetchPrices(tickers);
 
     const ratings = ratingDocs.map((r) => {
       const currentPrice = priceMap[r.ticker] || 0;
