@@ -17,32 +17,25 @@ async function fetchPrices(tickers: string[]): Promise<Record<string, number>> {
   if (tickers.length === 0) return map;
 
   try {
-    const symbols = tickers.join(',');
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}`;
+    const yf = await import('yahoo-finance2');
+    const yahooFinance = yf.default;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const results = await Promise.all(
+      tickers.map(async (ticker) => {
+        try {
+          const quote: Record<string, unknown> = await yahooFinance.quote(ticker);
+          return { ticker, price: (quote.regularMarketPrice as number) ?? 0 };
+        } catch {
+          return { ticker, price: 0 };
+        }
+      }),
+    );
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) throw new Error(`Yahoo API ${res.status}`);
-
-    const data = await res.json() as {
-      quoteResponse?: { result?: Array<{ symbol: string; regularMarketPrice?: number }> }
-    };
-
-    const quotes = data?.quoteResponse?.result ?? [];
-    for (const q of quotes) {
-      if (q.symbol && q.regularMarketPrice) {
-        map[q.symbol] = q.regularMarketPrice;
-      }
+    for (const r of results) {
+      if (r.price > 0) map[r.ticker] = r.price;
     }
   } catch (err) {
-    console.warn('Yahoo Finance price fetch failed:', err);
+    console.warn('yahoo-finance2 failed, prices unavailable:', err);
   }
 
   return map;
