@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from '../lib/db';
+import { getDb } from './_db';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
@@ -39,6 +39,6 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     return res.json(result);
   } catch (error) {
     console.error('Error fetching analysts:', error);
-    return res.status(500).json({ error: 'Failed to fetch analysts' });
+    return res.status(500).json({ error: 'Failed to fetch analysts', details: String(error) });
   }
 }
