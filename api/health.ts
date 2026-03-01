@@ -1,26 +1,44 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from '../lib/db';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
-  const checks: Record<string, unknown> = {
-    envSet: !!process.env.MONGODB_URI,
-    timestamp: new Date().toISOString(),
-  };
+  const uri =
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    process.env.DATABASE_URL ||
+    '';
+
+  if (!uri) {
+    return res.json({
+      status: 'error',
+      message: 'No MongoDB env var found',
+      checked: ['MONGODB_URI', 'MONGO_URI', 'DATABASE_URL'],
+      all_env_keys: Object.keys(process.env).sort(),
+    });
+  }
 
   try {
-    const db = await getDb();
-    const analystCount = await db.collection('analysts').countDocuments();
-    const ratingCount = await db.collection('ratings').countDocuments();
+    const { MongoClient } = await import('mongodb');
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+    });
+    await client.connect();
+    const db = client.db();
+    const analysts = await db.collection('analysts').countDocuments();
+    const ratings = await db.collection('ratings').countDocuments();
+    await client.close();
 
-    checks.db = 'connected';
-    checks.dbName = db.databaseName;
-    checks.analysts = analystCount;
-    checks.ratings = ratingCount;
-
-    return res.json({ status: 'ok', ...checks });
+    return res.json({
+      status: 'ok',
+      dbName: db.databaseName,
+      analysts,
+      ratings,
+    });
   } catch (error) {
-    checks.db = 'failed';
-    checks.error = String(error);
-    return res.status(500).json({ status: 'error', ...checks });
+    return res.status(500).json({
+      status: 'db_error',
+      message: String(error),
+      uriPrefix: uri.substring(0, 20) + '...',
+    });
   }
 }
