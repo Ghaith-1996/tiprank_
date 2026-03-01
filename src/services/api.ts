@@ -8,7 +8,7 @@ export const api = {
   },
 
   async getAnalystById(id: string): Promise<Analyst | undefined> {
-    const res = await fetch(`/api/analyst/${id}`);
+    const res = await fetch(`/api/analyst?id=${encodeURIComponent(id)}`);
     if (!res.ok) return undefined;
     return res.json();
   },

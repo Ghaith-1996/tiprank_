@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Minus, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Minus, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 import type { Analyst } from '../types';
 
@@ -8,13 +8,20 @@ export default function AnalystPage() {
   const { id } = useParams<{ id: string }>();
   const [analyst, setAnalyst] = useState<Analyst | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
-      api.getAnalystById(id).then((data) => {
-        setAnalyst(data || null);
-        setLoading(false);
-      });
+      api.getAnalystById(id)
+        .then((data) => {
+          setAnalyst(data || null);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load analyst:', err);
+          setError(err.message || 'Failed to load analyst');
+          setLoading(false);
+        });
     }
   }, [id]);
 
@@ -23,6 +30,19 @@ export default function AnalystPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
         <p className="text-lg font-medium">Loading analyst profile...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
+        <AlertCircle className="w-10 h-10 text-rose-500 mb-4" />
+        <p className="text-lg font-medium text-rose-400">Something went wrong</p>
+        <p className="text-sm text-slate-500 mt-2">{error}</p>
+        <Link to="/" className="mt-6 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">
+          Back to Analysts
+        </Link>
       </div>
     );
   }

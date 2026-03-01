@@ -24,9 +24,7 @@ async function fetchPrices(tickers: string[]): Promise<Record<string, number>> {
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -44,17 +42,17 @@ async function fetchPrices(tickers: string[]): Promise<Record<string, number>> {
       }
     }
   } catch (err) {
-    console.warn('Yahoo Finance price fetch failed (prices will show as —):', err);
+    console.warn('Yahoo Finance price fetch failed:', err);
   }
 
   return map;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { id } = req.query;
+  const id = req.query.id as string;
 
-  if (!id || Array.isArray(id)) {
-    return res.status(400).json({ error: 'Invalid analyst ID' });
+  if (!id) {
+    return res.status(400).json({ error: 'Missing ?id= parameter' });
   }
 
   let objectId: ObjectId;
